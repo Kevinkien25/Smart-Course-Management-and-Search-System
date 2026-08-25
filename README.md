@@ -1,6 +1,6 @@
 # Course Management & Smart Search System
 
-Một hệ thống quản lý và tìm kiếm khóa học trực tuyến thông minh được xây dựng bằng **100% JavaScript (MERN Stack)**. Dự án sử dụng duy nhất thuật toán **Rule-Based Search Ranking Algorithm** được lập trình bằng JavaScript thuần, **KHÔNG** sử dụng Machine Learning, AI models, Python, OpenAI, Gemini, Elasticsearch hay Redis.
+Một hệ thống quản lý và tìm kiếm khóa học trực tuyến thông minh được xây dựng bằng **100% JavaScript (MERN Stack)**. Dự án sử dụng duy nhất thuật toán **Rule-Based Search Ranking Algorithm** được lập trình bằng JavaScript thuần.
 
 ---
 
@@ -55,15 +55,6 @@ Hệ thống cho phép người dùng tìm kiếm các khóa học (ví dụ: `"
 ### Database
 - **MongoDB** - NoSQL Database
 - **Mongoose** - ODM & Schemas
-
-### ❌ KHÔNG SỬ DỤNG:
-- 🚫 Python, TensorFlow, PyTorch
-- 🚫 Machine Learning, Deep Learning, AI Models
-- 🚫 AI API, OpenAI API, Gemini API
-- 🚫 Elasticsearch, Redis
-- 🚫 AWS, Microservices
-
----
 
 ## 📐 4. System Architecture (Kiến trúc hệ thống)
 
