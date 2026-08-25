@@ -1,44 +1,28 @@
 const aiService = require('../services/aiService');
 
-// @desc    Get AI Search Intent Analysis & Keyword Suggestions
-// @route   GET /api/ai/search-intent?q=...
+// @desc    Interactive Chat with Google Gemini AI Bot
+// @route   POST /api/ai/chat
 // @access  Public
-exports.getSearchIntent = async (req, res, next) => {
+exports.chatWithAI = async (req, res, next) => {
   try {
-    const { q } = req.query;
-    const analysis = await aiService.analyzeSearchIntent(q || '');
+    const { history, message } = req.body;
 
-    res.status(200).json({
-      success: true,
-      message: 'AI Search Intent analyzed successfully',
-      data: analysis
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get AI Generated Summary for Course Details
-// @route   POST /api/ai/summarize
-// @access  Public
-exports.getCourseSummary = async (req, res, next) => {
-  try {
-    const { title, description } = req.body;
-
-    if (!title || !description) {
+    if (!message || !message.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide course title and description',
-        error: { code: 'MISSING_FIELDS' }
+        message: 'Please provide a chat message',
+        error: { code: 'MISSING_MESSAGE' }
       });
     }
 
-    const summary = await aiService.summarizeCourse(title, description);
+    const reply = await aiService.chatWithAI(history || [], message.trim());
 
     res.status(200).json({
       success: true,
-      message: 'Course summarized by AI successfully',
-      data: summary
+      message: 'AI reply generated successfully',
+      data: {
+        reply
+      }
     });
   } catch (error) {
     next(error);

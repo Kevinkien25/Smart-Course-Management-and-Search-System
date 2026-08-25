@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Row, Col, Form, Card, Button, Badge, Spinner, InputGroup } from 'react-bootstrap';
-import { Search, Filter, Sparkles, Bot, Lightbulb, Compass } from 'lucide-react';
+import { Search, Filter, Sparkles, Info } from 'lucide-react';
 import API from '../services/api';
 import CourseCard from '../components/CourseCard';
 
@@ -24,10 +24,6 @@ const CourseList = () => {
   const [totalResults, setTotalResults] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // AI Search Intent State
-  const [aiIntent, setAiIntent] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-
   // Load categories list on mount
   useEffect(() => {
     API.get('/categories')
@@ -37,7 +33,7 @@ const CourseList = () => {
       .catch(err => console.error('[CourseList]: Failed to load categories:', err));
   }, []);
 
-  // Fetch search results & AI intent whenever query params change
+  // Fetch search results whenever query params change
   useEffect(() => {
     const fetchSearchResults = async () => {
       setLoading(true);
@@ -67,23 +63,6 @@ const CourseList = () => {
       } finally {
         setLoading(false);
       }
-
-      // Trigger AI Search Intent Analysis if query exists
-      if (qParam.trim()) {
-        setLoadingAi(true);
-        try {
-          const aiRes = await API.get(`/ai/search-intent?q=${encodeURIComponent(qParam.trim())}`);
-          if (aiRes.data.success) {
-            setAiIntent(aiRes.data.data);
-          }
-        } catch (err) {
-          console.error('[CourseList]: AI Intent error:', err);
-        } finally {
-          setLoadingAi(false);
-        }
-      } else {
-        setAiIntent(null);
-      }
     };
 
     fetchSearchResults();
@@ -110,15 +89,7 @@ const CourseList = () => {
     setMinPrice('');
     setMaxPrice('');
     setSelectedSort('relevance');
-    setAiIntent(null);
     setSearchParams({});
-  };
-
-  const handleKeywordTagClick = (keyword) => {
-    setQuery(keyword);
-    const params = Object.fromEntries(searchParams);
-    params.q = keyword;
-    setSearchParams(params);
   };
 
   return (
@@ -170,59 +141,6 @@ const CourseList = () => {
           </Row>
         </Form>
       </div>
-
-      {/* AI Intent & Keyword Expansion Card */}
-      {searchParams.get('q') && (
-        <Card className="border-0 shadow-sm rounded-4 mb-4 text-white" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
-          <Card.Body className="p-4">
-            <div className="d-flex align-items-center justify-content-between mb-2">
-              <div className="d-flex align-items-center gap-2 text-warning fw-bold fs-6">
-                <Bot size={22} />
-                <span>OpenAI Search Intent Analysis & Keyword Expansion</span>
-                <Badge bg="success" className="ms-1">OpenAI API Active ⚡</Badge>
-              </div>
-              {loadingAi && <Spinner animation="border" size="sm" variant="warning" />}
-            </div>
-
-            {aiIntent ? (
-              <Row className="g-3 align-items-center">
-                <Col lg={7}>
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="text-light opacity-75 small">Ý định tìm kiếm (Intent):</span>
-                    <Badge bg="info" className="fs-6 px-3 py-1">{aiIntent.intent}</Badge>
-                    <Badge bg="primary" className="fs-6 px-3 py-1">{aiIntent.targetTechnology}</Badge>
-                  </div>
-                  <p className="text-light extra-small mb-0 opacity-90 d-flex align-items-center gap-1">
-                    <Lightbulb size={14} className="text-warning flex-shrink-0" />
-                    <strong>Lời khuyên OpenAI:</strong> {aiIntent.aiAdvice}
-                  </p>
-                </Col>
-
-                <Col lg={5}>
-                  <div className="small text-light opacity-75 mb-2 d-flex align-items-center gap-1">
-                    <Compass size={14} /> OpenAI Mở rộng từ khóa (Click để lọc nhanh):
-                  </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    {aiIntent.expandedKeywords.map((kw, idx) => (
-                      <Button
-                        key={idx}
-                        variant="outline-light"
-                        size="sm"
-                        className="py-1 px-3 extra-small rounded-pill border-opacity-50"
-                        onClick={() => handleKeywordTagClick(kw)}
-                      >
-                        + {kw}
-                      </Button>
-                    ))}
-                  </div>
-                </Col>
-              </Row>
-            ) : (
-              <p className="text-light small mb-0 opacity-75">Đang phân tích từ khóa với OpenAI GPT Engine...</p>
-            )}
-          </Card.Body>
-        </Card>
-      )}
 
       <Row>
         {/* Left Filter Sidebar */}
@@ -305,10 +223,10 @@ const CourseList = () => {
 
               <div className="bg-light p-3 rounded-3 border">
                 <div className="d-flex align-items-center gap-1 text-primary fw-bold small mb-2">
-                  <Sparkles size={14} /> Hybrid Rule & OpenAI Engine
+                  <Sparkles size={14} /> Rule Ranking Score Info
                 </div>
                 <p className="extra-small text-muted mb-0">
-                  Hệ thống kết hợp thuật toán tính điểm độ phù hợp Rule-Based (Title +8, Title Term +5, Desc +2, Category +3) cùng với OpenAI Intent Analysis.
+                  Khi nhập từ khóa, hệ thống tính toán <code>Relevance Score</code> cộng dồn: Title Exact Match (+8), Title Word Match (+5), Description (+2), Category (+3), Rating & Log Students.
                 </p>
               </div>
             </Card.Body>
@@ -340,9 +258,9 @@ const CourseList = () => {
           ) : searchResults.length === 0 ? (
             <Card className="border-0 shadow-sm text-center py-5 rounded-4">
               <Card.Body>
-                <Bot size={48} className="text-muted mb-3" />
+                <Info size={48} className="text-muted mb-3" />
                 <h5 className="fw-bold">Không tìm thấy khóa học phù hợp</h5>
-                <p className="text-muted small">Thử thay đổi từ khóa hoặc sử dụng gợi ý từ OpenAI.</p>
+                <p className="text-muted small">Thử thay đổi từ khóa hoặc sử dụng Trợ lý AI Chat ở góc màn hình.</p>
                 <Button variant="primary" onClick={handleResetFilter}>
                   Đặt lại tìm kiếm
                 </Button>

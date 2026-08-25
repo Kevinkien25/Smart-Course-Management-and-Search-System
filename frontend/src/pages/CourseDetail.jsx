@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Badge, Button, Spinner, Alert } from 'react-bootstrap';
-import { Star, Users, Award, CheckCircle2, ShieldCheck, ArrowLeft, BookOpen, Bot, Sparkles } from 'lucide-react';
+import { Star, Users, Award, CheckCircle2, ShieldCheck, ArrowLeft, BookOpen } from 'lucide-react';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
@@ -17,33 +17,12 @@ const CourseDetail = () => {
   const [message, setMessage] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // AI Summary State
-  const [aiSummary, setAiSummary] = useState(null);
-  const [loadingAiSummary, setLoadingAiSummary] = useState(false);
-
   useEffect(() => {
     const fetchCourseAndStatus = async () => {
       try {
         const res = await API.get(`/courses/${id}`);
         if (res.data.success) {
-          const cData = res.data.data;
-          setCourse(cData);
-
-          // Fetch OpenAI Course Summary
-          setLoadingAiSummary(true);
-          try {
-            const aiRes = await API.post('/ai/summarize', {
-              title: cData.title,
-              description: cData.description
-            });
-            if (aiRes.data.success) {
-              setAiSummary(aiRes.data.data);
-            }
-          } catch (err) {
-            console.error('[CourseDetail]: AI Summarize error:', err);
-          } finally {
-            setLoadingAiSummary(false);
-          }
+          setCourse(res.data.data);
         }
 
         // Check if user is already enrolled
@@ -157,40 +136,6 @@ const CourseDetail = () => {
           <Col lg={8}>
             {message && <Alert variant="success" dismissible onClose={() => setMessage(null)}>{message}</Alert>}
             {errorMsg && <Alert variant="danger" dismissible onClose={() => setErrorMsg(null)}>{errorMsg}</Alert>}
-
-            {/* OpenAI Course Summary Card */}
-            <Card className="border-0 shadow-sm rounded-4 mb-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white' }}>
-              <Card.Body className="p-4">
-                <div className="d-flex align-items-center justify-content-between mb-3">
-                  <div className="d-flex align-items-center gap-2 text-warning fw-bold fs-5">
-                    <Bot size={24} />
-                    <span>OpenAI Smart Course Summary</span>
-                    <Badge bg="success" className="ms-1 fs-6">Live OpenAI API ⚡</Badge>
-                  </div>
-                  {loadingAiSummary && <Spinner animation="border" size="sm" variant="warning" />}
-                </div>
-
-                {aiSummary ? (
-                  <div>
-                    <h6 className="fw-semibold text-info mb-2 d-flex align-items-center gap-1">
-                      <Sparkles size={16} /> Key Highlights (Tóm tắt từ OpenAI GPT):
-                    </h6>
-                    <ul className="mb-3 small text-light lh-lg">
-                      {aiSummary.highlights.map((item, idx) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-
-                    <div className="bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-50">
-                      <span className="small text-warning fw-bold">🎯 Đối tượng phù hợp: </span>
-                      <span className="small text-light">{aiSummary.targetAudience}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-muted small mb-0">Đang tạo tóm tắt thông minh từ OpenAI...</p>
-                )}
-              </Card.Body>
-            </Card>
 
             <Card className="border-0 shadow-sm rounded-4 mb-4">
               <Card.Body className="p-4">

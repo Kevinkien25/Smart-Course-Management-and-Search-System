@@ -28,7 +28,6 @@ const searchRoutes = require('./routes/searchRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const searchHistoryRoutes = require('./routes/searchHistoryRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const aiRoutes = require('./routes/aiRoutes');
 
 // Mount API routes
 app.use('/api/auth', authRoutes);
@@ -38,7 +37,6 @@ app.use('/api/search', searchRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/search-history', searchHistoryRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/ai', aiRoutes);
 
 // Global Error Handler Middleware
 app.use(errorHandler);

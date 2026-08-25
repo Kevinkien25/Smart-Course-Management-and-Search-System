@@ -1,123 +1,142 @@
-const OpenAI = require('openai');
+const https = require('https');
+const dotenv = require('dotenv');
+const path = require('path');
+const mongoose = require('mongoose');
+const Course = require('../models/Course');
 
-let openaiClient = null;
-
-const apiKey = process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.trim() : '';
-
-if (apiKey) {
-  try {
-    openaiClient = new OpenAI({ apiKey });
-    console.log('[AI Service]: OpenAI API Client initialized successfully with active API Key!');
-  } catch (err) {
-    console.error('[AI Service]: OpenAI Initialization warning:', err.message);
-  }
-}
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 /**
- * Analyze user search query intent & suggest related keywords using OpenAI
- * @param {string} query - Raw search term entered by user
+ * Call Google Gemini REST API directly using gemini-flash-latest / gemini-3.5-flash-lite
+ * @param {string} promptText The prompt to send to Gemini
  */
-const analyzeSearchIntent = async (query) => {
-  if (!query || !query.trim()) {
-    return {
-      intent: 'General Browse',
-      targetTechnology: 'Web Development',
-      expandedKeywords: [],
-      aiAdvice: 'Nhập từ khóa kỹ thuật cụ thể để nhận gợi ý lộ trình phù hợp từ OpenAI.'
-    };
-  }
-
-  if (openaiClient) {
-    try {
-      const response = await openaiClient.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI IT Career Advisor & Search Intent Analyzer for an online course platform. Respond strictly in JSON format.'
-          },
-          {
-            role: 'user',
-            content: `Analyze search query: "${query}". Return JSON with keys: "intent" (e.g. Backend Development, Frontend UI, Database), "targetTechnology", "expandedKeywords" (array of 3-5 related tech terms), "aiAdvice" (1 short advice in Vietnamese).`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 300
-      });
-
-      const result = JSON.parse(response.choices[0].message.content);
-      return {
-        isLiveAI: true,
-        intent: result.intent || 'IT Skill Learning',
-        targetTechnology: result.targetTechnology || query,
-        expandedKeywords: result.expandedKeywords || [query],
-        aiAdvice: result.aiAdvice || 'Lựa chọn các khóa học có dự án thực tế để tăng trải nghiệm.'
-      };
-    } catch (error) {
-      console.error('[AI Service]: OpenAI API call error:', error.message);
+const callGeminiRestApi = (promptText) => {
+  return new Promise((resolve, reject) => {
+    const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : '';
+    if (!apiKey) {
+      return reject(new Error('GEMINI_API_KEY is missing in backend/.env'));
     }
-  }
 
-  // Fallback simulator if key is invalid or fails
-  return {
-    isLiveAI: false,
-    intent: 'Lập trình Web',
-    targetTechnology: 'JavaScript Stack',
-    expandedKeywords: [query, 'Node.js', 'ReactJS', 'ExpressJS', 'MongoDB'],
-    aiAdvice: 'Học theo thứ tự từ cơ bản đến nâng cao và hoàn thành dự án thực hành.'
-  };
+    const requestBody = JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: promptText }
+          ]
+        }
+      ]
+    });
+
+    // Try model endpoints matching the working curl: gemini-flash-latest, gemini-3.5-flash-lite, gemini-1.5-flash
+    const model = 'gemini-flash-latest';
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      port: 443,
+      path: `/v1beta/models/${model}:generateContent`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': apiKey,
+        'Content-Length': Buffer.byteLength(requestBody)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            const textResponse = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            resolve(textResponse);
+          } catch (e) {
+            reject(new Error('Failed to parse Gemini API response JSON'));
+          }
+        } else {
+          reject(new Error(`Gemini API HTTP Error ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.write(requestBody);
+    req.end();
+  });
 };
 
 /**
- * Summarize course content using OpenAI
- * @param {string} title - Course title
- * @param {string} description - Full course description
+ * Chat with Google Gemini AI Bot (Floating Chat Bubble Service)
+ * @param {Array<Object>} history Chat message history [{ role: 'user'|'model', content: '...' }]
+ * @param {string} userMessage Latest message typed by user
  */
-const summarizeCourse = async (title, description) => {
-  if (openaiClient) {
-    try {
-      const response = await openaiClient.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI Tech Course Summarizer. Summarize in Vietnamese.'
-          },
-          {
-            role: 'user',
-            content: `Khóa học: "${title}". Mô tả: "${description}". Hãy tóm tắt 3 điểm nổi bật nhất (bullet points) và 1 nhóm đối tượng phù hợp. Trả về dạng JSON có keys: "highlights" (array of 3 strings), "targetAudience" (string).`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 350
-      });
+const chatWithAI = async (history = [], userMessage = '') => {
+  if (!userMessage || !userMessage.trim()) {
+    return 'Xin chào! Tôi có thể giúp gì cho bạn về các khóa học lập trình?';
+  }
 
-      const result = JSON.parse(response.choices[0].message.content);
-      return {
-        isLiveAI: true,
-        highlights: result.highlights || [],
-        targetAudience: result.targetAudience || 'Dành cho các bạn muốn phát triển sự nghiệp lập trình web.'
-      };
-    } catch (error) {
-      console.error('[AI Service]: OpenAI summarize error:', error.message);
+  // Fetch available courses context safely if Mongoose is connected
+  let coursesContext = '';
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const courses = await Course.find()
+        .populate('category', 'name')
+        .select('title description level price rating instructor students category')
+        .limit(10);
+      coursesContext = courses
+        .map(
+          c =>
+            `- ${c.title} (Danh mục: ${c.category?.name || 'N/A'}, Cấp độ: ${c.level}, Giá: ${
+              c.price === 0 ? 'Miễn phí' : c.price.toLocaleString('vi-VN') + 'đ'
+            }, Đánh giá: ${c.rating}⭐)`
+        )
+        .join('\n');
+    } catch (e) {
+      console.error('[AI Service]: Context load error:', e.message);
     }
   }
 
-  // Fallback Summary
-  return {
-    isLiveAI: false,
-    highlights: [
-      `Nắm vững kiến thức chuyên sâu về ${title}`,
-      'Thực hành dự án thực tế với sự hướng dẫn của giảng viên chuyên nghiệp',
-      'Xây dựng tư duy thiết kế hệ thống và viết code chuẩn sạch'
-    ],
-    targetAudience: 'Phù hợp cho học viên muốn nâng cao kỹ năng lập trình web.'
-  };
+  try {
+    console.log(`[AI Chat]: Calling Gemini REST API (gemini-flash-latest) for prompt "${userMessage.substring(0, 30)}..."`);
+
+    const systemPrompt = `Bạn là Trợ lý AI Thông Minh (EduSmart Bot) chuyên tư vấn khóa học lập trình và định hướng sự nghiệp IT.
+Trả lời ngắn gọn, thân thiện, lịch sự bằng tiếng Việt (có biểu tượng emoji thích hợp).
+
+Dưới đây là danh sách khóa học hiện có trong hệ thống của chúng tôi để bạn tham khảo tư vấn cho học viên:
+${coursesContext}
+
+Hãy trả lời thắc mắc của học viên một cách chính xác dựa trên danh sách khóa học trên và kiến thức CNTT chuẩn.`;
+
+    const prompt = `${systemPrompt}\n\nLịch sử hội thoại trước đó:\n${history
+      .map(m => `${m.role === 'user' ? 'Học viên' : 'Trợ lý AI'}: ${m.content}`)
+      .join('\n')}\n\nHọc viên: ${userMessage}\nTrợ lý AI:`;
+
+    const reply = await callGeminiRestApi(prompt);
+    console.log('[AI Chat]: Live Gemini API response received successfully!');
+    return reply;
+  } catch (error) {
+    console.error('[AI Service]: Gemini REST API error:', error.message);
+  }
+
+  // Smart Fallback Response Generator if Gemini Key is missing or failing
+  const msg = userMessage.toLowerCase();
+  if (msg.includes('node') || msg.includes('backend') || msg.includes('express')) {
+    return '🚀 Để học Node.js Backend, tôi khuyên bạn nên chọn khóa học "NodeJS Backend từ cơ bản đến nâng cao" hoặc "Fullstack JavaScript MERN Stack". Khóa học sẽ hướng dẫn bạn dựng RESTful API với Express và MongoDB chuẩn doanh nghiệp!';
+  } else if (msg.includes('react') || msg.includes('front')) {
+    return '⚡ Với Frontend ReactJS, bạn có thể tham khảo khóa "ReactJS cơ bản và ứng dụng thực tế". Khóa học bao gồm React Hooks, State Management và Router DOM giúp bạn tự tay làm web SPA hiện đại.';
+  } else if (msg.includes('miễn phí') || msg.includes('free') || msg.includes('giá')) {
+    return '💰 Hệ thống hiện có nhiều khóa học với mức giá ưu đãi từ 290.000đ đến các khóa Miễn phí. Bạn có thể sử dụng bộ lọc khoảng giá tại trang "Tìm kiếm khóa học" để xem danh sách cụ thể nhé!';
+  } else if (msg.includes('xin chào') || msg.includes('chào') || msg.includes('hi')) {
+    return '👋 Xin chào bạn! Tôi là Trợ lý AI EduSmart. Bạn đang muốn tìm khóa học về công nghệ gì (Node.js, ReactJS, MongoDB, Fullstack...)?';
+  }
+
+  return '💡 Tôi là EduSmart AI Bot. Bạn có thể hỏi tôi về các khóa học Node.js, ReactJS, MongoDB, Fullstack hoặc lời khuyên định hướng lập trình IT nhé!';
 };
 
 module.exports = {
-  analyzeSearchIntent,
-  summarizeCourse
+  chatWithAI,
+  callGeminiRestApi
 };
